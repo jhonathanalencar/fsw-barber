@@ -11,17 +11,21 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/app/_components/ui/sheet";
-import { Service } from "@prisma/client";
+import { Barbershop, Service } from "@prisma/client";
 import { ptBR } from "date-fns/locale";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { generateDayTimeList } from "../_helpers/hours";
-import { format } from "date-fns";
+import { format, setHours, setMinutes } from "date-fns";
+import { saveBooking } from "../_actions/save-booking";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface ServiceItemProps {
   service: Service;
-  barbershop: string;
+  barbershop: Barbershop;
   isAuthenticated: boolean;
 }
 
@@ -30,8 +34,12 @@ export function ServiceItem({
   barbershop,
   isAuthenticated,
 }: ServiceItemProps) {
+  const router = useRouter();
+  const { data } = useSession();
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [hour, setHour] = useState<string | undefined>(undefined);
+  const [submitIsLoading, setSubmitIsLoading] = useState(false);
+  const [sheetIsOpen, setSheetIsOpen] = useState(false);
 
   const handleDateClick = (date: Date | undefined) => {
     setDate(date);
@@ -44,6 +52,42 @@ export function ServiceItem({
 
   const handleBookingClick = () => {
     if (!isAuthenticated) return signIn("google");
+  };
+
+  const handleBookingSubmit = async () => {
+    setSubmitIsLoading(true);
+    try {
+      if (!date || !hour || !data?.user) return;
+
+      const dateHour = Number(hour.split(":")[0]);
+      const dateMinutes = Number(hour.split(":")[1]);
+
+      const newDate = setMinutes(setHours(date, dateHour), dateMinutes);
+
+      await saveBooking({
+        barbershopId: barbershop.id,
+        serviceId: service.id,
+        date: newDate,
+        userId: (data.user as any).id,
+      });
+
+      setSheetIsOpen(false);
+      setHour(undefined);
+      setDate(undefined);
+      toast("Reserva realizada com sucesso!", {
+        description: format(newDate, "'Para' dd 'de' MMMM 'às' HH':'mm'.'", {
+          locale: ptBR,
+        }),
+        action: {
+          label: "Visualizar",
+          onClick: () => router.push("/bookings"),
+        },
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSubmitIsLoading(false);
+    }
   };
 
   const timeList = useMemo(() => {
@@ -75,10 +119,10 @@ export function ServiceItem({
                   currency: "BRL",
                 }).format(Number(service.price))}
               </p>
-              <Sheet>
+              <Sheet open={sheetIsOpen} onOpenChange={setSheetIsOpen}>
                 <SheetTrigger asChild>
                   <Button variant="secondary" onClick={handleBookingClick}>
-                    Agendar
+                    Reservar
                   </Button>
                 </SheetTrigger>
 
@@ -166,14 +210,22 @@ export function ServiceItem({
 
                         <div className="flex justify-between">
                           <h3 className="text-gray-400 text-sm">Barbearia</h3>
-                          <h4 className="text-sm">{barbershop}</h4>
+                          <h4 className="text-sm">{barbershop.name}</h4>
                         </div>
                       </CardContent>
                     </Card>
                   </div>
 
                   <SheetFooter className="px-5">
-                    <Button disabled={!hour || !date}>Confirmar reserva</Button>
+                    <Button
+                      onClick={handleBookingSubmit}
+                      disabled={!hour || !date || submitIsLoading}
+                    >
+                      {submitIsLoading && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Confirmar reserva
+                    </Button>
                   </SheetFooter>
                 </SheetContent>
               </Sheet>
