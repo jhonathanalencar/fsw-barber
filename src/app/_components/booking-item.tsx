@@ -17,7 +17,7 @@ export function BookingItem({ booking }: BookingItemProps) {
   const isBookingConfirmed = isFuture(booking.date);
 
   return (
-    <Card>
+    <Card className="min-w-full">
       <CardContent className="p-0 pl-5 py-0 flex">
         <div className="flex flex-col gap-2 py-5 flex-[3]">
           <Badge
