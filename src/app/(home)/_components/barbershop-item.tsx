@@ -20,7 +20,7 @@ export function BarbershopItem({ barbershop }: BarbershopItemProps) {
   };
 
   return (
-    <Card className="min-w-[167px] h-fit max-w-[167px] rounded-2xl">
+    <Card className="min-w-full h-fit max-w-full rounded-2xl">
       <CardContent className="p-0">
         <div className="h-[159px] w-full relative">
           <div className="absolute top-2 left-2 z-50">
